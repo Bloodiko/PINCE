@@ -99,6 +99,7 @@ from libpince.libptrscan.ptrscan import PointerScan, FFIRange, FFIParam
 from GUI.Settings.themes import get_theme
 from GUI.Settings.themes import theme_list
 from GUI.Utils import guiutils
+from GUI.Utils.Session import get_session
 
 from GUI.MainWindow import Ui_MainWindow as MainWindow
 from GUI.SelectProcess import Ui_MainWindow as ProcessWindow
@@ -501,10 +502,10 @@ class MainForm(QMainWindow, MainWindow):
         self.freeze_timer = QTimer(timeout=self.freeze_loop, singleShot=True)
         self.freeze_timer.start()
         self.shortcut_open_file = QShortcut(QKeySequence("Ctrl+O"), self)
-        self.shortcut_open_file.activated.connect(self.pushButton_Open_clicked)
+        self.shortcut_open_file.activated.connect(get_session().pushButton_Open_clicked)
         guiutils.append_shortcut_to_tooltip(self.pushButton_Open, self.shortcut_open_file)
         self.shortcut_save_file = QShortcut(QKeySequence("Ctrl+S"), self)
-        self.shortcut_save_file.activated.connect(self.pushButton_Save_clicked)
+        self.shortcut_save_file.activated.connect(self.save_cheattable)
         guiutils.append_shortcut_to_tooltip(self.pushButton_Save, self.shortcut_save_file)
 
         # Saving the original function because super() doesn't work when we override functions like this
@@ -512,8 +513,8 @@ class MainForm(QMainWindow, MainWindow):
         self.treeWidget_AddressTable.keyPressEvent = self.treeWidget_AddressTable_key_press_event
         self.treeWidget_AddressTable.contextMenuEvent = self.treeWidget_AddressTable_context_menu_event
         self.pushButton_AttachProcess.clicked.connect(self.pushButton_AttachProcess_clicked)
-        self.pushButton_Open.clicked.connect(self.pushButton_Open_clicked)
-        self.pushButton_Save.clicked.connect(self.pushButton_Save_clicked)
+        self.pushButton_Open.clicked.connect(get_session().pushButton_Open_clicked)
+        self.pushButton_Save.clicked.connect(self.save_cheattable)
         self.pushButton_NewFirstScan.clicked.connect(self.pushButton_NewFirstScan_clicked)
         self.pushButton_UndoScan.clicked.connect(self.pushButton_UndoScan_clicked)
         self.pushButton_NextScan.clicked.connect(self.pushButton_NextScan_clicked)
@@ -563,6 +564,7 @@ class MainForm(QMainWindow, MainWindow):
         self.pushButton_About.setIcon(QIcon(QPixmap(icons_directory + "/information.png")))
         self.pushButton_NextScan.setEnabled(False)
         self.pushButton_UndoScan.setEnabled(False)
+        get_session().file_loaded_signal.connect(self.cheattable_loaded)
         self.flashAttachButton = True
         self.flashAttachButtonTimer = QTimer()
         self.flashAttachButtonTimer.timeout.connect(self.flash_attach_button)
@@ -1051,6 +1053,22 @@ class MainForm(QMainWindow, MainWindow):
         for item in self.treeWidget_AddressTable.selectedItems():
             (item.parent() or root).removeChild(item)
 
+    def save_cheattable(self):
+        # TODO: Migrate Address Table to a model as well.
+        get_session().cheat_table = [
+            self.read_address_table_recursively(self.treeWidget_AddressTable.topLevelItem(i))
+            for i in range(self.treeWidget_AddressTable.topLevelItemCount())
+        ]
+        get_session().pushButton_Save_clicked()
+
+    def cheattable_loaded(self):
+        self.treeWidget_AddressTable.clear()
+        self.insert_records(
+            get_session().cheat_table,
+            self.treeWidget_AddressTable.invisibleRootItem(),
+            self.treeWidget_AddressTable.topLevelItemCount(),
+        )
+
     def treeWidget_AddressTable_key_press_event(self, event):
         actions = typedefs.KeyboardModifiersTupleDict(
             [
@@ -1502,34 +1520,6 @@ class MainForm(QMainWindow, MainWindow):
     def pushButton_AttachProcess_clicked(self):
         self.processwindow = ProcessForm(self)
         self.processwindow.show()
-
-    def pushButton_Open_clicked(self):
-        file_paths, _ = QFileDialog.getOpenFileNames(self, tr.OPEN_PCT_FILE, None, tr.FILE_TYPES_PCT)
-        if not file_paths:
-            return
-        self.clear_address_table()
-        for file_path in file_paths:
-            content = utils.load_file(file_path)
-            if content is None:
-                QMessageBox.information(self, tr.ERROR, tr.FILE_LOAD_ERROR.format(file_path))
-                break
-            self.insert_records(
-                content,
-                self.treeWidget_AddressTable.invisibleRootItem(),
-                self.treeWidget_AddressTable.topLevelItemCount(),
-            )
-
-    def pushButton_Save_clicked(self):
-        file_path, _ = QFileDialog.getSaveFileName(self, tr.SAVE_PCT_FILE, None, tr.FILE_TYPES_PCT)
-        if not file_path:
-            return
-        content = [
-            self.read_address_table_recursively(self.treeWidget_AddressTable.topLevelItem(i))
-            for i in range(self.treeWidget_AddressTable.topLevelItemCount())
-        ]
-        file_path = utils.append_file_extension(file_path, "pct")
-        if not utils.save_file(content, file_path):
-            QMessageBox.information(self, tr.ERROR, tr.FILE_SAVE_ERROR)
 
     # Returns: a bool value indicates whether the operation succeeded.
     def attach_to_pid(self, pid: int):
