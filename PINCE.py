@@ -145,6 +145,7 @@ from GUI.AbstractTableModels.HexModel import QHexModel
 from GUI.AbstractTableModels.AsciiModel import QAsciiModel
 from GUI.Validators.HexValidator import QHexValidator
 from GUI.ManualAddressDialogUtils.PointerChainOffset import PointerChainOffset
+from GUI.Notes.Notes import NotesWidget
 
 from keyboard import KeyboardEvent, _pressed_events
 from keyboard._nixkeyboard import to_name
@@ -459,6 +460,7 @@ class MainForm(QMainWindow, MainWindow):
         self.settings = QSettings()
         self.memory_view_window = MemoryViewWindowForm(self)
         self.await_exit_thread = AwaitProcessExit()
+        self.notes_widget = NotesWidget()
         self.auto_attach_timer = QTimer(timeout=self.auto_attach_loop)
 
         if not os.path.exists(self.settings.fileName()):

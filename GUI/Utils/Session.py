@@ -1,8 +1,17 @@
+import enum
 from PyQt6.QtWidgets import QMessageBox, QFileDialog
 from PyQt6.QtCore import pyqtSignal, QObject
 
 from tr.tr import TranslationConstants as tr
 from libpince import typedefs, utils
+
+
+class DataChanged(enum.Flag):
+    NONE = 0
+    CHEAT_TABLE = 1
+    BOOKMARKS = 2
+    NOTES = 4
+    ALL = CHEAT_TABLE | BOOKMARKS | NOTES
 
 
 class Session(QObject):
@@ -18,6 +27,7 @@ class Session(QObject):
         self.bookmarks = []
         self.notes = ""
         self.version = 1
+        self.data_changed = DataChanged.NONE
 
     def pushButton_Save_clicked(self):
         file_path, _ = QFileDialog.getSaveFileName(self, tr.SAVE_PCT_FILE, None, tr.FILE_TYPES_PCT)
